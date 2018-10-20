@@ -19,7 +19,7 @@ The data being chosen for this project is the data used in the paper "A Corpus o
 for Sarcasm Detection" (Swami et. al., 2018) (https://github.com/sahilswami96/SarcasmDetection_CodeMixed/blob/master/Dataset/Sarcasm_tweets_with_language.txt).
 
 ## Task definition
-We treat the task of language identification as a sequence labelling problem, in which each word is going to be assigned the tag of the language as provided in the training data. The training data chosen here uses only 'en' and 'hi' labels for English and Hindi (and 'rest' for other words which are ambiguous or punctuation and other common words and symbols in both languages), but hopefully this can be extended to code-mixed datasets and languages. 
+We treat the task of language identification as a sequence labelling problem, in which each word is going to be assigned the tag of the language as provided in the training data. The training data chosen here uses only 'en' and 'hi' labels for English and Hindi (and 'rest' for other words which are ambiguous, such as hashtags and so on, or punctuation and other common words and symbols in both languages), but hopefully this can be extended to code-mixed datasets and languages. 
 
 ## Current Approaches
 Language identification of codemixed data was a Workshop Task to COLING 2014. Some of the approaches that exist for this task include dictionary based methods, support vector machines and conditional random fields. We have attempted these methods on our data.
