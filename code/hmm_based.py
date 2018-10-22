@@ -29,7 +29,7 @@ class HMM:
                 temp = []
                 continue
             temp.append(line)
-
+        params.append(temp)
         split_params = [[(pair.split(" ")[0], pair.split(" ")[-1].strip('\n')) for pair in sent if " " in pair] for sent in params if sent != []]
         words = [[pair.split(" ")[0] for pair in sent if " " in pair] for sent in params if sent != []]
         return split_params, words
