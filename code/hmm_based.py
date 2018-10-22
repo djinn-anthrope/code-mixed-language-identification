@@ -1,10 +1,4 @@
-import nltk
-from nltk.corpus import brown
-
-
-# nltk.download('brown')
-
-
+import re
 
 class HMM:
     def __init__(self):
@@ -15,32 +9,42 @@ class HMM:
         self.test_corp_correct = []
         self.context = {}
         self.word_tag_sets = {}
-        self.unique_tags = []
-        self.most_probable_tags = {}
+        self.unique_lang = []
+        self.most_probable_lang = {}
         self.bigram_count = {}
         self.split_corpus()
-        # self.generate_model()
+        self.generate_model()
         # self.accuracy_hmm()
 
     def tag_sentences(self):
         ifile = open("../data/output.txt", "r")
-        params = ifile.readlines()
-        split_params = [(par.split(" ")[0], par.split(" ")[-1]) for par in params if " " not in par]
-        print(split_params[:50])
+        regex_param = re.compile(r'[0-9]+')
+        temp = []
+        params = []
+        for line in ifile:
+            if " " not in line:
+                if temp == []:
+                    continue
+                params.append(temp)
+                temp = []
+                continue
+            temp.append(line)
 
+        split_params = [[(pair.split(" ")[0], pair.split(" ")[-1].strip('\n')) for pair in sent if " " in pair] for sent in params if sent != []]
+        words = [[pair.split(" ")[0] for pair in sent if " " in pair] for sent in params if sent != []]
+        return split_params, words
 
 
     def split_corpus(self):
-        tagged_sentences = self.tag_sentences()
-        # sentences = self.corpus.sents()
-        # total = len(tagged_sentences)
-        # cutoff = int(0.8 * total)
-        # self.train_corpus = tagged_sentences[:cutoff]
-        # self.test_corpus = sentences[cutoff:]
-        # self.test_corp_correct = tagged_sentences[cutoff:]
+        tagged_sentences, sentences = self.tag_sentences()
+        total = len(tagged_sentences)
+        cutoff = int(0.65 * total)
+        self.train_corpus = tagged_sentences[:cutoff]
+        self.test_corpus = sentences[cutoff:]
+        self.test_corp_correct = tagged_sentences[cutoff:]
 
     def accuracy_hmm(self):
-        Ncount = 500
+        Ncount = 10000
         total_count = 0
         corr_count = 0
         for ind, sentence in enumerate(self.test_corpus[:Ncount]):
@@ -50,22 +54,24 @@ class HMM:
             for j, pred in enumerate(predicted):
                 if predicted[j] == actual[j]:
                     corr_count += 1
+
         print("Accurracy of HMM Model:: ", corr_count / total_count * 100)
 
     def generate_model(self):
         for sentence in self.train_corpus:
+            # print(sentence)
             l1 = len(sentence)
-            trigram = ("<pos>", "<pos>")
+            trigram = ("<lang>", "<lang>")
             bigram = ("<s>",)
             for word, pos in sentence:
-                if pos not in self.unique_tags:
-                    self.unique_tags.append(pos)
-                    self.most_probable_tags[pos] = {}
+                if pos not in self.unique_lang:
+                    self.unique_lang.append(pos)
+                    self.most_probable_lang[pos] = {}
 
-                if word not in self.most_probable_tags[pos]:
-                    self.most_probable_tags[pos][word] = 0
+                if word not in self.most_probable_lang[pos]:
+                    self.most_probable_lang[pos][word] = 0
 
-                self.most_probable_tags[pos][word] += 1
+                self.most_probable_lang[pos][word] += 1
 
                 if word not in self.word_tag_sets:
                     self.word_tag_sets[word] = set()
@@ -91,7 +97,7 @@ class HMM:
                 trigram = (trigram[1], pos)
                 bigram = (word,)
 
-            trans_key = (sentence[l1 - 2][1], sentence[l1 - 1][1], '</pos>')
+            trans_key = (sentence[l1 - 2][1], sentence[l1 - 1][1], '</lang>')
             if trans_key not in self.transition:
                 self.transition[trans_key] = 0
             self.transition[trans_key] += 1
@@ -140,7 +146,7 @@ class HMM:
                 if word in self.word_tag_sets:
                     possible = self.word_tag_sets[word]
                 else:
-                    possible = self.unique_tags
+                    possible = self.unique_lang
                 for pos in possible:
                     emm_prob = self.get_prob(self.emmision, ("<s>", pos, word))
                     init_prob = self.get_prob(self.bigram_count, ("<s>", word))
@@ -152,20 +158,20 @@ class HMM:
                 if word in self.word_tag_sets:
                     possible = self.word_tag_sets[word]
                 else:
-                    possible = self.unique_tags
+                    possible = self.unique_lang
                 # print(sequence[i-1][0])
                 if sequence[i - 1] in self.word_tag_sets:
                     prev1 = self.word_tag_sets[sequence[i - 1]]
                 else:
-                    prev1 = self.unique_tags
+                    prev1 = self.unique_lang
                 # print(prev1)
                 if i > 1:
                     if sequence[i - 2] in self.word_tag_sets:
                         prev2 = self.word_tag_sets[sequence[i - 2]]
                     else:
-                        prev2 = self.unique_tags
+                        prev2 = self.unique_lang
                 else:
-                    prev2 = ["<pos>"]
+                    prev2 = ["<lang>"]
                 for pos in possible:
                     x_prob = 0
                     emm_prob = self.get_prob(self.emmision, (sequence[i - 1], pos, word))
@@ -192,7 +198,7 @@ class HMM:
         bp = {}
         n = len(sequence)
         dp[-1] = {}
-        dp[-1][("<pos>", "<pos>")] = 1
+        dp[-1][("<lang>", "<lang>")] = 1
         for i, word in enumerate(sequence):
             possible = []
             prev1 = []
@@ -200,31 +206,31 @@ class HMM:
             if word in self.word_tag_sets:
                 possible = self.word_tag_sets[word]
             else:
-                possible = self.unique_tags
+                possible = self.unique_lang
 
             prevword = ''
             if i == 0:
                 prevword = '<s>'
-                prev1 = ['<pos>']
-                prev2 = ['<pos>']
+                prev1 = ['<lang>']
+                prev2 = ['<lang>']
             elif i == 1:
                 prevword = sequence[i - 1]
                 if sequence[i - 1] in self.word_tag_sets:
                     prev1 = self.word_tag_sets[sequence[i - 1]]
                 else:
-                    prev1 = self.unique_tags
-                prev2 = ['<pos>']
+                    prev1 = self.unique_lang
+                prev2 = ['<lang>']
             else:
                 prevword = sequence[i - 1]
                 if sequence[i - 1] in self.word_tag_sets:
                     prev1 = self.word_tag_sets[sequence[i - 1]]
                 else:
-                    prev1 = self.unique_tags
+                    prev1 = self.unique_lang
                 # print(prev1)
                 if sequence[i - 2] in self.word_tag_sets:
                     prev2 = self.word_tag_sets[sequence[i - 2]]
                 else:
-                    prev2 = self.unique_tags
+                    prev2 = self.unique_lang
             dp[i] = {}
             bp[i] = {}
             for pos in possible:
@@ -253,22 +259,22 @@ class HMM:
         if sequence[n - 1] in self.word_tag_sets:
             prev1 = self.word_tag_sets[sequence[n - 1]]
         else:
-            prev1 = self.unique_tags
+            prev1 = self.unique_lang
         # print(prev1)
         if n - 2 == -1:
-            prev2 = ['<pos>']
+            prev2 = ['<lang>']
         else:
             if sequence[n - 2] in self.word_tag_sets:
                 prev2 = self.word_tag_sets[sequence[n - 2]]
             else:
-                prev2 = self.unique_tags
+                prev2 = self.unique_lang
         POS = [0] * n
         argmax = ()
         maxval = -999999
         # print(dp)
         for prev_pos1 in prev1:
             for prev_pos2 in prev2:
-                trans_prob = self.get_prob(self.transition, (prev_pos2, prev_pos1, '</pos>'))
+                trans_prob = self.get_prob(self.transition, (prev_pos2, prev_pos1, '</lang>'))
                 # print(dp[n-1])
                 prod = dp[n - 1][(prev_pos2, prev_pos1)] * trans_prob
                 if prod > maxval:
@@ -286,13 +292,13 @@ class HMM:
 
     def get_bestfit_tags(self, index):
         sentence = self.test_corpus[index]
-        print("\n==========TESTING==========\n\nGiven Observation Sequence:: ", ' '.join(sentence))
+        # print("\n==========TESTING==========\n\nGiven Observation Sequence:: ", ' '.join(sentence))
 
-        prob_obs = self.forward_algorithm(sentence)
+        # prob_obs = self.forward_algorithm(sentence)
         POS = self.viterbi_algorithm(sentence)
 
-        print("\nProbability of Observation Sequence:: ", prob_obs)
-        print("\nBEST FIT SEQUENCE:::\n")
+        # print("\nProbability of Observation Sequence:: ", prob_obs)
+        # print("\nBEST FIT SEQUENCE:::\n")
 
         n = len(sentence)
 
@@ -300,20 +306,26 @@ class HMM:
             # print(sentence[i],'\t\t',POS[i])
             print('{:<17} {}'.format(sentence[i], POS[i]))
 
-        print("\n===========================\n")
+        # print("\n===========================\n")
 
     def get_ABP(self):
         return (self.transition, self.emmision, self.bigram_count)
 
     def print_most_probable_tags(self):
-        print("\nTOP 50 MOST PROBABLE WORD FOR EACH TAGS\n")
-        for pos, val in self.most_probable_tags.items():
+        print("\nTOP 50 MOST PROBABLE WORD FOR EACH LANG\n")
+        for pos, val in self.most_probable_lang.items():
             sorted_val = [word[0] for word in sorted(val.items(), key=lambda x: x[1], reverse=True)[:50]]
             print('{:<10} {}'.format(pos, sorted_val))
-        print('\n')
+        print('\n\n\n')
 
 
-hmm = HMM(brown)
-# hmm.print_most_probable_tags()
-# hmm.get_bestfit_tags(0)
-# A, B, P = hmm.get_ABP()
+    def print_output(self):
+        for i in range(len(self.test_corpus)):
+            self.get_bestfit_tags(i)
+            print('\n\n\n')
+
+hmm = HMM()
+hmm.print_most_probable_tags()
+# hmm.print_output()
+hmm.accuracy_hmm()
+A, B, P = hmm.get_ABP()
