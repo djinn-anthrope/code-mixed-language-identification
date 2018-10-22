@@ -1,0 +1,3 @@
+These are the papers and proceedings that have been refered to in this project:
+
+http://www.aclweb.org/anthology/W14-39: These are the proceedigns to the EMNLP workshop on code-mixing and code-switching, which took place in 2014.
