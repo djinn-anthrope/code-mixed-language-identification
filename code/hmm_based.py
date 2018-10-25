@@ -17,28 +17,29 @@ class HMM:
         # self.accuracy_hmm()
 
     def tag_sentences(self):
-        ifile = open("../data/output.txt", "r")
+        ifile = open("../data/data_new.txt", "r")
         regex_param = re.compile(r'[0-9]+')
         temp = []
         params = []
         for line in ifile:
-            if " " not in line:
+            if line == '\n':
                 if temp == []:
                     continue
                 params.append(temp)
                 temp = []
                 continue
-            temp.append(line)
+            newline = line[::-1].split("\t", 1)[1][::-1]
+            temp.append(newline)
         params.append(temp)
-        split_params = [[(pair.split(" ")[0], pair.split(" ")[-1].strip('\n')) for pair in sent if " " in pair] for sent in params if sent != []]
-        words = [[pair.split(" ")[0] for pair in sent if " " in pair] for sent in params if sent != []]
+        split_params = [[(pair.split("\t")[0], pair.split("\t")[-1].strip('\n')) for pair in sent if "\t" in pair] for sent in params if sent != []]
+        words = [[pair.split("\t")[0] for pair in sent if "\t" in pair] for sent in params if sent != []]
         return split_params, words
 
 
     def split_corpus(self):
         tagged_sentences, sentences = self.tag_sentences()
         total = len(tagged_sentences)
-        cutoff = int(0.65 * total)
+        cutoff = int(0.75 * total)
         self.train_corpus = tagged_sentences[:cutoff]
         self.test_corpus = sentences[cutoff:]
         self.test_corp_correct = tagged_sentences[cutoff:]
@@ -59,7 +60,6 @@ class HMM:
 
     def generate_model(self):
         for sentence in self.train_corpus:
-            # print(sentence)
             l1 = len(sentence)
             trigram = ("<lang>", "<lang>")
             bigram = ("<s>",)
@@ -102,32 +102,25 @@ class HMM:
                 self.transition[trans_key] = 0
             self.transition[trans_key] += 1
 
-        # emm_key = (sentence[l1-1][0],'</pos>','</s>')
-        # if emm_key not in self.emmision:
-        # 	self.emmision[emm_key] = 0
-        # self.emmision[emm_key] += 1
-
         N = sum(self.transition.values())
         V = len(self.transition.values())
-        lmdb = 0.05
+        lmdb = 0.28
         for tran in self.transition:
-            # self.transition[tran] /= self.context[tran[0:2]]
             self.transition[tran] = (self.transition[tran] + lmdb) / (N + lmdb * V)
         self.transition['_'] = lmdb / (N + lmdb * V)
 
         N = sum(self.emmision.values())
         V = len(self.emmision.values())
         for emm in self.emmision:
-            # self.emmision[emm] /= self.context[emm[0:2]]
             self.emmision[emm] = (self.emmision[emm] + lmdb) / (N + lmdb * V)
         self.emmision['_'] = lmdb / (N + lmdb * V)
 
         N = sum(self.bigram_count.values())
         V = len(self.bigram_count.values())
         for bg in self.bigram_count:
-            # self.bigram_count[bg] /= tots
             self.bigram_count[bg] = (self.bigram_count[bg] + lmdb) / (N + lmdb * V)
         self.bigram_count['_'] = lmdb / (N + lmdb * V)
+
 
     def get_prob(self, d, word):
         possible = 0
@@ -248,19 +241,15 @@ class HMM:
                     dp[i][(prev_pos1, pos)] = emm_prob * maxval
                     bp[i][(prev_pos1, pos)] = argmax
             # dp[0]['<pos> ' + pos] = {'v':emm_prob*init_prob,'b':0}
-        # else:
-        # possible = []
-        # prev1 = []
-        # prev2 = []
+
         prev1 = []
         prev2 = []
 
-        # print(sequence[i-1][0])
         if sequence[n - 1] in self.word_tag_sets:
             prev1 = self.word_tag_sets[sequence[n - 1]]
         else:
             prev1 = self.unique_lang
-        # print(prev1)
+
         if n - 2 == -1:
             prev2 = ['<lang>']
         else:
@@ -271,42 +260,30 @@ class HMM:
         POS = [0] * n
         argmax = ()
         maxval = -999999
-        # print(dp)
+
         for prev_pos1 in prev1:
             for prev_pos2 in prev2:
                 trans_prob = self.get_prob(self.transition, (prev_pos2, prev_pos1, '</lang>'))
-                # print(dp[n-1])
+
                 prod = dp[n - 1][(prev_pos2, prev_pos1)] * trans_prob
                 if prod > maxval:
                     maxval = prod
                     argmax = (prev_pos2, prev_pos1)
         POS[n - 1] = argmax[1]
         POS[n - 2] = argmax[0]
-        # print(POS)
-        # print(bp)
+
         for i in range(n - 3, -1, -1):
-            # print(bp[i])
             POS[i] = bp[i + 2][(POS[i + 1], POS[i + 2])]
 
         return POS
 
     def get_bestfit_tags(self, index):
         sentence = self.test_corpus[index]
-        # print("\n==========TESTING==========\n\nGiven Observation Sequence:: ", ' '.join(sentence))
-
-        # prob_obs = self.forward_algorithm(sentence)
         POS = self.viterbi_algorithm(sentence)
-
-        # print("\nProbability of Observation Sequence:: ", prob_obs)
-        # print("\nBEST FIT SEQUENCE:::\n")
-
         n = len(sentence)
 
         for i in range(n):
-            # print(sentence[i],'\t\t',POS[i])
             print('{:<17} {}'.format(sentence[i], POS[i]))
-
-        # print("\n===========================\n")
 
     def get_ABP(self):
         return (self.transition, self.emmision, self.bigram_count)
@@ -325,7 +302,8 @@ class HMM:
             print('\n\n\n')
 
 hmm = HMM()
-hmm.print_most_probable_tags()
+# hmm.print_most_probable_tags()
 # hmm.print_output()
+hmm.get_bestfit_tags(10)
 hmm.accuracy_hmm()
 A, B, P = hmm.get_ABP()
